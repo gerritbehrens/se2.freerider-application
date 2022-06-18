@@ -2,12 +2,15 @@ package de.freerider.app;
 
 import de.freerider.datamodel.Customer;
 import de.freerider.repository.CustomerRepository;
+import org.aspectj.apache.bcel.Repository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.ComponentScan;
+import de.freerider.repository.*;
+import de.freerider.datamodel.*;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -19,13 +22,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @ComponentScan( basePackages = { "de.freerider.restapi" } )
 @SpringBootApplication
 public class Application {
-
-	// Spring auto‐wires reference to CustomerRepository instance
+	//
+	@Autowired
 	private CustomerRepository customerRepository;
+
 	public static void main(String[] args) {
 		System.out.println( "Hello, freerider.de" );
 		SpringApplication.run(Application.class, args);
 	}
+
 	@EventListener( ApplicationReadyEvent.class )
 	public void runAfterSpringStartup() {    // runs when Spring is ready, fills repo when empty
 		//

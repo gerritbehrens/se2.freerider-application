@@ -151,7 +151,7 @@ public interface CustomersAPI {
      */
     @RequestMapping(
             method = RequestMethod.PUT,
-            value = ""	// relative to interface @RequestMapping
+            value = "api/v1/customers"	// relative to interface @RequestMapping
     )
     //
     ResponseEntity<List<?>> putCustomers( @RequestBody Map<String, Object>[] jsonMap );

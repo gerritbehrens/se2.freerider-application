@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import de.freerider.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Repository;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,13 +27,13 @@ class CustomersController implements CustomersAPI {
     private final ObjectMapper objectMapper;
     //
     private final HttpServletRequest request;
+    //
     @Autowired
-    private CustomerRepository customerRepository = new CustomerRepository();
+    private CustomerRepository customerRepository;
 
     CustomersController(ObjectMapper objectMapper, HttpServletRequest request) {
         this.objectMapper = objectMapper;
         this.request = request;
-
     }
 
     @Override
@@ -107,7 +109,7 @@ ResponseEntity<List<?>> re = null;
                 Object value = kvpairs.get(key);
                 System.out.println(" [ " + key + ", " + value + " ]");
             });
-            Optional<Customer> co = accept(kvpairs);
+            Optional<Customer> co = accept(kvpairs, true);
             if (co.isEmpty()) {
                 err400Body.add(kvpairs);
             } else {
@@ -129,44 +131,43 @@ ResponseEntity<List<?>> re = null;
         return re;
     }
 
-private Optional<Customer> accept(Map<String, Object> kvpairs){
+    private Optional<Customer> accept(Map<String, Object> kvpairs, boolean enableIdGen) {
         Optional<Customer> co = Optional.empty();
-
+        // Get props
         Long id = -1L;
         String lastName = jsonToString("name", kvpairs);
         String firstName = jsonToString("first", kvpairs);
         String contacts = jsonToString("contacts", kvpairs);
 
-        if(kvpairs.containsKey("id")){
+        if (kvpairs.containsKey("id")) {
             Object o = kvpairs.get("id");
 
-            if(o instanceof Long){
+            if (o instanceof Long) {
                 id = (Long) o;
-            }
-            else if(o instanceof Integer){
+            } else if (o instanceof Integer) {
                 Integer i = (Integer) o;
                 id = Long.valueOf(i.longValue());
             }
-        } else{
+        } else if(enableIdGen){
             id = customerRepository.count() + 1L;
-            while (customerRepository.existsById(id)){
+            while (customerRepository.existsById(id)) {
                 id++;
             }
         }
 
-        //check conditions to create a customer
-        if( id > 0 && !lastName.isEmpty() && !firstName.isEmpty()){
+        // check conditions to create a customer
+        if (id > 0 && !lastName.isEmpty() && !firstName.isEmpty()) {
             Customer c = new Customer().setId(id).setName(firstName, lastName);
-            if(!contacts.isEmpty()){
+            if (!contacts.isEmpty()) {
                 String[] contactsArray = contacts.split(";");
-                for(String contact : contactsArray){
+                for (String contact : contactsArray) {
                     c.addContact(contact);
                 }
             }
             co = Optional.of(c);
         }
         return co;
-}
+    }
 
 
 private String jsonToString(String key, Map<String, Object> kvpairs) {
@@ -182,8 +183,40 @@ private String jsonToString(String key, Map<String, Object> kvpairs) {
 
     @Override
     public ResponseEntity<List<?>> putCustomers(Map<String, Object>[] jsonMap) {
-        //TODO
-        return null;
+        System.err.println("PUT /customers");
+        if (jsonMap == null)
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        //
+        System.out.println("[{");
+        ArrayList<Map<String, Object>> rejectedCustomers409 = new ArrayList<>();
+        ArrayList<Map<String, Object>> rejectedCustomers404 = new ArrayList<>();
+
+        for (Map<String, Object> kvpairs : jsonMap) {
+            kvpairs.keySet().forEach(key -> {
+                Object value = kvpairs.get(key);
+                System.out.println("  [ " + key + ", " + value + " ]");
+            });
+            Optional<Customer> co = accept(kvpairs, false);
+            if (!co.isPresent() || !customerRepository.existsById(co.get().getId())) {
+                System.out.println("Customer props invalid");
+                rejectedCustomers404.add(kvpairs);
+            } else {
+                try {
+                    customerRepository.save(co.get());
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    rejectedCustomers409.add(kvpairs);
+                }
+            }
+        }
+        System.out.println("}]");
+        if (!rejectedCustomers409.isEmpty()) {
+            return new ResponseEntity<>(rejectedCustomers409, HttpStatus.CONFLICT);
+        } else if (!rejectedCustomers404.isEmpty()) {
+            return new ResponseEntity<>(rejectedCustomers404, HttpStatus.NOT_FOUND);
+        } else {
+            return new ResponseEntity<>(null, HttpStatus.ACCEPTED);
+        }
     }
 
     @Override
