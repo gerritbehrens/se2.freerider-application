@@ -1,7 +1,6 @@
 package de.freerider.app;
 
 import de.freerider.datamodel.Customer;
-import de.freerider.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
